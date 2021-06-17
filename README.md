@@ -54,7 +54,7 @@ mkdir Example
 cd Example
 mkdir inputDirectory
 ```
-Now install/donwload the GBSmode scripts from github.
+Now install/download the GBSmode scripts from github.
 
 ```
 module load git
