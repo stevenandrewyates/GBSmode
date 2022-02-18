@@ -43,6 +43,69 @@ The data can then be converted into fastq data using the following command. It t
 
     R --vanilla --slave "--args output_genotype.txt output_genotype_coverage.txt GBSmode.vcf 1" <  ModeToVCF.R
 
+# Easy example
+
+This example is designed for a quick check and uses only the dependencies needed for GBSmode
+
+1) Download the data
+```
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/242/695/GCF_000242695.1_LepOcu1/GCF_000242695.1_LepOcu1_genomic.fna.gz
+gunzip GCF_000242695.1_LepOcu1_genomic.fna.gz
+```
+
+2) Prepare the genome for bowtie2-build
+```
+mkdir GENOME
+```
+
+3) Extract the first two linkage groups, less time later
+```
+head -n 1600000 GCF_000242695.1_LepOcu1_genomic.fna | sed "s/>.*group />/g" > GENOME/genome.fasta
+bowtie2-build GENOME/genome.fasta GENOME/genome
+```
+
+4) Download the raw data
+```
+mkdir DEPLEX
+cd DEPLEX
+for x in $(seq 1 20); do echo wget https://zenodo.org/record/1219888/files/progeny_$x;done | sh
+cd ..
+```
+
+5) Trim the data to 70 base pairs and then sort and count the frequency of each sequence
+prepare and sort the data
+```
+mkdir inputDirectory
+for x in $(ls DEPLEX/); do grep -A1 "^>" DEPLEX/$x | grep -v "-" | grep -v ">" | cut -c-70 | sort | uniq -c > inputDirectory/$x;done
+```
+
+6) Download GBSmode 
+```
+git clone https://github.com/stevenandrewyates/GBSmode
+```
+
+7) Prepare data for GBSmode
+```
+perl GBSmode/getUniqueTags.pl inputDirectory/ > Count.data
+perl GBSmode/makeFastq.pl Count.data > sequences.fastq
+bowtie2 -x GENOME/genome -U sequences.fastq -S file.sam
+grep "LG" file.sam | grep -v "^@" | cut -f 1-6 | grep 'Hap' > filter.sam
+perl GBSmode/TrimCountsInput.pl filter.sam Count.data > filter.data
+```
+8) Lower the minimum number of genotypes to 10
+```
+sed -i 's/NG <- 19/NG <- 9/' GBSmode/GBSmode.R
+```
+10) Run GBSmode
+```
+R --vanilla --slave "--args filter.data filter.sam output progeny GENOME/genome.fasta" < GBSmode/GBSmode.R
+```
+11) Convert the GBSmode data into vcf format 
+```
+R --vanilla --slave "--args output_genotype.txt output_genotype_coverage.txt GBSmode.vcf 1" <  GBSmode/ModeToVCF.R
+```
+12) Voila, the output VCF is: "GBSmode.vcf"
+
 
 # Example
 
